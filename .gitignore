@@ -1,0 +1,5 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+invoice_agent.db
