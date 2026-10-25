@@ -4,6 +4,7 @@ import asyncio
 import copy
 import hashlib
 import json
+import logging
 import os
 import re
 import uuid
@@ -46,6 +47,8 @@ TERMINAL_STATES = {
     "TASK_STATE_FAILED",
     "TASK_STATE_REJECTED",
 }
+
+logger = logging.getLogger("invoice_agent")
 
 app = FastAPI(
     title="A2A Invoice Action Agent",
@@ -785,12 +788,14 @@ async def message_send(request: Request):
                 policy_revision=data["policyRevision"],
             )
         except ValueError as exc:
+            logger.warning("AI_DECISION_INVALID diagnostic: %s", exc)
             raise AgentError(
                 502,
                 "AI_DECISION_INVALID",
                 "AI decisions failed evidence or schema validation.",
             ) from exc
         except RuntimeError as exc:
+            logger.warning("AI decision provider diagnostic: %s", exc)
             if "AI is not configured" in str(exc):
                 raise AgentError(
                     503,
@@ -804,6 +809,7 @@ async def message_send(request: Request):
                 "AI could not return a valid decision batch.",
             ) from exc
         except Exception as exc:
+            logger.exception("Unexpected exception while deciding invoice batch")
             raise AgentError(
                 502,
                 "AI_DECISION_FAILED",

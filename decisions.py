@@ -281,8 +281,11 @@ async def call_model(
             },
         ],
         "response_format": {"type": "json_object"},
+        # Gemini 3.8 Flash supports reasoning_effort; low reduces latency for
+        # this time-limited request. Do not send the deprecated temperature
+        # sampling parameter to Gemini 3.8 Flash.
+        "reasoning_effort": "low",
         "max_tokens": 9000,
-        "temperature": 0,
     }
 
     try:
@@ -304,8 +307,14 @@ async def call_model(
             f"AI provider returned HTTP {exc.response.status_code}."
         ) from exc
 
-    except (httpx.TimeoutException, httpx.RequestError) as exc:
-        raise RuntimeError("AI provider request failed or timed out.") from exc
+    except httpx.TimeoutException as exc:
+        raise RuntimeError(
+            f"AI provider request timed out ({type(exc).__name__})."
+        ) from exc
+    except httpx.RequestError as exc:
+        raise RuntimeError(
+            f"AI provider network request failed ({type(exc).__name__})."
+        ) from exc
 
     except ValueError as exc:
         raise RuntimeError("AI provider returned an invalid response.") from exc
@@ -397,8 +406,9 @@ async def decide_packages(
         cached.update(newly_validated)
 
         if validation_errors:
+            details = "; ".join(validation_errors[:3])
             raise ValueError(
-                "One or more AI decisions failed validation."
+                "One or more AI decisions failed validation: " + details
             )
 
     proposals = []
