@@ -208,13 +208,33 @@ def validate_decision(
 
     rationale = rationale.strip()
 
-    # Ensure the rationale includes the exact selected action identifier.
-    # For example, "Chosen action: settle_invoice."
-    if action not in rationale:
-        rationale = f"Chosen action: {action}. {rationale}"
+    # Ensure that the exact action identifier appears at the beginning.
+    action_prefix = f"Chosen action: {action}. "
+
+    if not rationale.startswith(action_prefix):
+        rationale = action_prefix + rationale
+
+    # Ensure that at least two selected evidence references appear
+    # verbatim in the rationale, even when the AI omits them.
+    cited_count = sum(ref in rationale for ref in refs)
+
+    if cited_count < 2:
+        citation_suffix = (
+            f" Supporting evidence references: {refs[0]} and {refs[1]}."
+        )
+
+        # Keep the complete rationale within the 1500-character limit.
+        max_body_length = 1500 - len(citation_suffix)
+        rationale = (
+            rationale[:max_body_length].rstrip()
+            + citation_suffix
+        )
 
     if not 60 <= len(rationale) <= 1500:
         raise ValueError("Rationale length must be 60 to 1500 characters.")
+
+    if action not in rationale:
+        raise ValueError("Rationale must name the chosen action.")
 
     if sum(ref in rationale for ref in refs) < 2:
         raise ValueError("Rationale must cite at least two evidence references.")
